@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Ticket</title>
+</head>
+<body>
+
+<h1>Create Ticket</h1>
+
+<form method="POST">
+    <input type="text" name="title" placeholder="Title" required>
+    <br><br>
+    <textarea name="description" placeholder="Description" required></textarea>
+    <br><br>
+    <p>Severity:</p>
+    <select name="severity">
+        <option value="LOW">LOW</option>
+        <option value="MEDIUM">MEDIUM</option>
+        <option value="HIGH">HIGH</option>
+    </select>
+    <br><br>
+    <button type="submit"> Create Ticket </button>
+</form>
+
+</body>
+</html>

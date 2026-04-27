@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Ticket</title>
+</head>
+<body>
+
+<h1>Edit Ticket</h1>
+
+<form method="POST">
+
+    <input type="text" name="title" value="{{ ticket.title }}" required>
+    <br><br>
+    <textarea name="description" required >{{ ticket.description }}</textarea>
+    <br><br>
+    <p>Severity:</p>
+    <select name="severity">
+        <option value="LOW" {% if ticket.severity == "LOW" %}selected{% endif %}>LOW</option>
+        <option value="MEDIUM" {% if ticket.severity == "MEDIUM" %}selected{% endif %}>MEDIUM</option>
+        <option value="HIGH" {% if ticket.severity == "HIGH" %}selected{% endif %}>HIGH</option>
+    </select>
+    <br><br>
+    <p>Status:</p>
+    <select name="status">
+        <option value="OPEN" {% if ticket.status == "OPEN" %}selected{% endif %}>OPEN</option>
+        <option value="IN_PROGRESS" {% if ticket.status == "IN_PROGRESS" %}selected{% endif %}>IN_PROGRESS</option>
+        <option value="RESOLVED" {% if ticket.status == "RESOLVED" %}selected{% endif %}>RESOLVED</option>
+    </select>
+    <br><br>
+    <button type="submit"> Save Changes</button>
+</form>
+
+</body>
+</html>
