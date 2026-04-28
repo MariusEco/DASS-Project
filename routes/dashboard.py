@@ -42,7 +42,7 @@ def dashboard_routes(app):
         user_id = session.get("user_id")
         user_role = session.get("role", "USER")
         
-        if ticket.owner_id != user_id and user_role != "MANAGER":
+        if ticket.owner_id != user_id:
             create_audit_log(user_id=user_id, action="UNAUTHORIZED_EDIT_ATTEMPT", resource="ticket", 
                              resource_id=str(ticket.id), ip_address=request.remote_addr)
             return "Access denied"
