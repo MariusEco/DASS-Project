@@ -1,7 +1,9 @@
 import random
-from flask import render_template, request, redirect, session, url_for
+from flask import render_template, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
 from database.models import db, User
-from utils.security import create_audit_log
+from utils.security import create_audit_log, is_strong_password
+from datetime import datetime, timedelta
 
 def register_routes(app):
     @app.route("/register", methods=["GET", "POST"])
@@ -9,10 +11,13 @@ def register_routes(app):
         if request.method == "POST":
             email = request.form.get("email")
             password = request.form.get("password")
+            if not is_strong_password(password):
+                return "Password must contain at least 8 characters, uppercase, lowercase, " \
+                        "number and special character"
             existing_user = User.query.filter_by(email=email).first()
             if existing_user:
                 return "User already exists"
-            new_user = User(email=email, password_hash=password,role="USER")
+            new_user = User(email=email, password_hash=generate_password_hash(password), role="USER")
             db.session.add(new_user)
             db.session.commit()
             create_audit_log(user_id=new_user.id, action="REGISTER", resource="auth", 
@@ -29,11 +34,28 @@ def register_routes(app):
             if not user:
                 create_audit_log(user_id=None, action="LOGIN_FAILED", resource="auth", 
                                  resource_id=None, ip_address=request.remote_addr)
-                return "User does not exist"
-            if user.password_hash != password:
+                return "Invalid credentials"
+            if user.lock_until and user.lock_until > datetime.now():
+                create_audit_log(user_id=user.id, action="LOGIN_BLOCKED", resource="auth",
+                                  resource_id=None, ip_address=request.remote_addr)
+                return "Account temporarily locked. Try again later."
+        
+            if not check_password_hash(user.password_hash, password):
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= 5:
+                    user.lock_until = datetime.now() + timedelta(minutes=15)
+                    user.locked = True
+                db.session.commit()
                 create_audit_log(user_id=user.id, action="LOGIN_FAILED", resource="auth", 
                                  resource_id=None, ip_address=request.remote_addr)
-                return "Wrong password"
+                return "Invalid credentials"
+            
+            user.failed_login_attempts = 0
+            user.lock_until = None
+            user.locked = False
+            db.session.commit()
+            
+            session.clear()
             session["user_id"] = user.id
             session["email"] = user.email
             session["role"] = user.role

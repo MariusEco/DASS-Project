@@ -11,6 +11,8 @@ class User(db.Model):
     role = db.Column(db.String(50), default="USER")
     created_at = db.Column(db.DateTime, default=datetime.now)
     locked = db.Column(db.Boolean, default=False)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    lock_until = db.Column(db.DateTime, nullable=True)
 
 class Ticket(db.Model):
     __tablename__ = "tickets"
