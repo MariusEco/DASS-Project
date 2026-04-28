@@ -1,4 +1,5 @@
 import random
+import secrets
 from flask import render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from database.models import db, User
@@ -54,8 +55,9 @@ def register_routes(app):
             user.lock_until = None
             user.locked = False
             db.session.commit()
-            
+
             session.clear()
+            session.permanent = True
             session["user_id"] = user.id
             session["email"] = user.email
             session["role"] = user.role
@@ -69,7 +71,10 @@ def register_routes(app):
         create_audit_log(user_id=session.get("user_id"), action="LOGOUT", resource="auth", 
                          resource_id=None, ip_address=request.remote_addr)
         session.clear()
-        return redirect("/login")
+        response = redirect("/login")
+        response.delete_cookie("session")
+
+        return response
     
     reset_tokens = {}
 
@@ -78,31 +83,39 @@ def register_routes(app):
         if request.method == "POST":
             email = request.form.get("email")
             user = User.query.filter_by(email=email).first()
-            if not user:
-                create_audit_log(user_id=None, action="FORGOT_PASSWORD_FAILED", resource="auth", 
-                                 resource_id=None, ip_address=request.remote_addr)
-                return "User does not exist"
-            token = str(random.randint(1000, 9999))
-            reset_tokens[email] = token
-            create_audit_log(user_id=user.id,action="FORGOT_PASSWORD", resource="auth", 
+            if user:
+                token = secrets.token_urlsafe(32)
+                reset_tokens[token] = { "email": email, "expires_at": datetime.now() + timedelta(minutes=15)}
+                create_audit_log(user_id=user.id,action="FORGOT_PASSWORD", resource="auth", 
                              resource_id=None, ip_address=request.remote_addr)
-            return f"Reset link: /reset-password/{token}"
+                return f"Reset link: /reset-password/{token}"
+        
+            return "If the account exists, a reset link has been generated."
+        
         return render_template("forgot_password.html")
     
     @app.route("/reset-password/<token>", methods=["GET", "POST"])
     def reset_password(token):
-        email = None
-        for k, v in reset_tokens.items():
-            if v == token:
-                email = k
-                break
-        if not email:
-            return "Invalid token"
+        token_data = reset_tokens.get(token)
+        if not token_data:
+            return "Invalid or expired token"
+        
+        if token_data["expires_at"] < datetime.now():
+            del reset_tokens[token]
+            return "Invalid or expired token"
+        
+        email = token_data["email"]
         if request.method == "POST":
             new_password = request.form.get("password")
+            if not is_strong_password(new_password):
+                return "Password does not meet security requirements"
             user = User.query.filter_by(email=email).first()
-            user.password_hash = new_password
+            if not user:
+                del reset_tokens[token]
+                return "Invalid request"
+            user.password_hash = generate_password_hash(new_password)
             db.session.commit()
+            del reset_tokens[token]
             create_audit_log(user_id=user.id, action="RESET_PASSWORD", resource="auth", 
                              resource_id=None, ip_address=request.remote_addr)
             return "Password changed successfully"
