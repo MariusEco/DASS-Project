@@ -46,7 +46,6 @@ def register_routes(app):
     def logout():
         create_audit_log(user_id=session.get("user_id"), action="LOGOUT", resource="auth", 
                          resource_id=None, ip_address=request.remote_addr)
-        session.clear()
         return redirect("/login")
     
     reset_tokens = {}
